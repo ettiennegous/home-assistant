@@ -2,13 +2,18 @@
 
 from enum import Enum
 
+
 class PeriodOffset(Enum):
+    """Offset period valid options for reporting."""
+
     current = 0
     prior = 1
     timebeforelast = 2
 
+
 class ReportPeriod(Enum):
-    live = "live"
+    """Timespan options for reporting."""
+
     day = "day"
     week = "week"
     month = "month"

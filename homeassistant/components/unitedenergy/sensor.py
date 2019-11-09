@@ -1,37 +1,21 @@
 """Platform to retrieve Energy Consumption from United Energy."""
-"""
-The "United Energy" custom component.
-Configuration:
-To use the United Energy sensor you will need to add the following to your
-configuration.yaml file.
-sensor:
-  - platform: unitedenergy
-    username: <username>
-    password: <password>
-
-Current implementation does
-* Only caters for a single default meter on the account
-* Only reads peak load and does not report on offpeak, shoulder or regen
-* Reports as the data becomes available on UE's platform actual hour by hour data is likely to trial by a couple of hours
-"""
 import logging
 from datetime import timedelta
-
+import enums
 import voluptuous as vol
-
+import unitedenergy
 from homeassistant.const import (
     CONF_PASSWORD,
     CONF_USERNAME,
     CONF_NAME,
     DEVICE_CLASS_POWER,
-    POWER_WATT,
     ENERGY_KILO_WATT_HOUR,
 )
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
-from . import unitedenergy, enums
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,7 +46,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
+
 def setup_platform(hass, config, add_entities, discovery_info=None):
+    """Setup United Energy Component."""
     username = config[CONF_USERNAME]
     password = config[CONF_PASSWORD]
 
@@ -81,12 +67,14 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     sensors.append(UESensor(data, MONTHLY_CUMULATIVE_NAME, MONTHLY_CUMULATIVE_TYPE))
     add_entities(sensors, True)
 
+
 class UEData:
+    """United Energy Sensor Data Structure."""
 
     def __init__(self, client: unitedenergy.UnitedEnergy):
         self.ue_client = client
 
-        self._last_hourly_timestamp = None
+        self._last_hourly_usage_timestamp = None
         self._hourly_usage = None
         self._hourly_price = None
 
@@ -104,93 +92,119 @@ class UEData:
 
     @property
     def hourly_usage(self):
+        """Return last hourly usage power."""
         return self._hourly_usage
 
     @property
-    def last_hourly_timestamp(self):
-        return self._last_hourly_timestamp
+    def last_hourly_usage_timestamp(self):
+        """Return date and time of last reported hourly reading."""
+        return self._last_hourly_usage_timestamp
 
     @property
     def hourly_price(self):
+        """Return price of last hourly reading."""
         return self._hourly_price
 
     @Throttle(HOURLY_SCAN_INTERVAL)
     def update_hourly_usage(self):
+        """Fetch last hourly usage power."""
         try:
-            result = self.ue_client.fetch_last_reading(enums.ReportPeriod.day, enums.PeriodOffset.current)
+            result = self.ue_client.fetch_last_reading(
+                enums.ReportPeriod.day, enums.PeriodOffset.current
+            )
             self._hourly_usage = result["total"]
             self._hourly_price = result["price"]
-            self._last_hourly_timestamp = result["timestamp"]
+            self._last_hourly_usage_timestamp = result["timestamp"]
         except KeyError as error:
             _LOGGER.error("Missing key in result: %s: %s", result, error)
 
     @property
     def daily_usage(self):
+        """Return last daily usage power."""
         return self._daily_usage
 
     @property
-    def last_daily_timestamp(self):
-        return self._last_daily_timestamp
+    def last_daily_usage_timestamp(self):
+        """Return time of last reported daily reading."""
+        return self._last_daily_usage_timestamp
 
     @property
     def daily_price(self):
+        """Return price of last daily reading."""
         return self._daily_price
 
     @Throttle(DAILY_SCAN_INTERVAL)
     def update_daily_usage(self):
+        """Fetch last daily usage power."""
         try:
-            result = self.ue_client.fetch_last_reading(enums.ReportPeriod.month, enums.PeriodOffset.current)
+            result = self.ue_client.fetch_last_reading(
+                enums.ReportPeriod.month, enums.PeriodOffset.current
+            )
             self._daily_usage = result["total"]
             self._daily_price = result["price"]
-            self._last_daily_timestamp = result["timestamp"]
+            self._last_daily_usage_timestamp = result["timestamp"]
         except KeyError as error:
             _LOGGER.error("Missing key in result: %s: %s", result, error)
 
     @property
     def monthly_usage(self):
+        """Return last monthly usage power."""
         return self._monthly_usage
 
     @property
-    def last_monthly_timestamp(self):
-        return self._last_monthly_timestamp
+    def last_monthly_usage_timestamp(self):
+        """Return date of last reported monthly reading."""
+        return self._last_monthly_usage_timestamp
 
     @property
     def monthly_price(self):
+        """Return price of monthly reading."""
         return self._monthly_price
 
     @Throttle(MONTHLY_SCAN_INTERVAL)
     def update_monthly_usage(self):
+        """Fetch last monthly usage power."""
         try:
-            result = self.ue_client.fetch_last_reading(enums.ReportPeriod.year, enums.PeriodOffset.current)
+            result = self.ue_client.fetch_last_reading(
+                enums.ReportPeriod.year, enums.PeriodOffset.current
+            )
             self._monthly_usage = result["total"]
             self._monthly_price = result["price"]
-            self._last_monthly_timestamp = result["timestamp"]
+            self._last_monthly_usage_timestamp = result["timestamp"]
         except KeyError as error:
             _LOGGER.error("Missing key in result: %s: %s", result, error)
 
     @property
     def monthly_cumulative_usage(self):
+        """Return last monthly cumulative usage power."""
         return self._monthly_cumulative_usage
 
     @property
-    def last_monthly_cumulative_timestamp(self):
-        return self._last_monthly_cumulative_timestamp
+    def last_monthly_cumulative_usage_timestamp(self):
+        """Return date of last reported cumulative reading."""
+        return self._last_monthly_cumulative_usage_timestamp
 
     @property
     def monthly_cumulative_price(self):
+        """Return price of monthly cumulative reading."""
         return self._monthly_cumulative_price
 
     @Throttle(MONTHLY_SCAN_INTERVAL)
     def update_monthly_cumulative_usage(self):
+        """Fetch last monthly cumulative usage power."""
         try:
-            result = self.ue_client.fetch_cumilitive_reading(enums.ReportPeriod.year, enums.PeriodOffset.current)
+            result = self.ue_client.fetch_cumilitive_reading(
+                enums.ReportPeriod.year, enums.PeriodOffset.current
+            )
             self._monthly_cumulative_usage = result["total"]
             self._monthly_cumulative_price = result["price"]
-            self._last_monthly_cumulative_timestamp = result["timestamp"]
+            self._last_monthly_cumulative_usage_timestamp = result["timestamp"]
         except KeyError as error:
             _LOGGER.error("Missing key in result: %s: %s", result, error)
 
+
 class UESensor(Entity):
+    """United Energy Sensor Object."""
 
     def __init__(self, data, name, sensor_type):
         self._name = name
@@ -226,13 +240,18 @@ class UESensor(Entity):
         return DEVICE_CLASS_POWER
 
     def update(self):
+        """Sensor updates itself with newest reading at x interval."""
         update_function = getattr(self._data, f"update_{self._sensor_type}_usage")
         update_function()
 
         self._attributes["last_update_timestamp"] = getattr(
             self._data, f"last_{self._sensor_type}_timestamp"
         )
-        _LOGGER.debug("Current reporting timestamp: %s Previous timestamp: %s", self._attributes["last_update_timestamp"], self._prev_timestamp)
+        _LOGGER.debug(
+            "Current reporting timestamp: %s Previous timestamp: %s",
+            self._attributes["last_update_timestamp"],
+            self._prev_timestamp,
+        )
         # dont track the same value twice.
         if self._attributes["last_update_timestamp"] == self._prev_timestamp:
             return
@@ -240,6 +259,5 @@ class UESensor(Entity):
 
         self._state = getattr(self._data, f"{self._sensor_type}_usage")
 
-        self._attributes["price"] = getattr(
-            self._data, f"{self._sensor_type}_price"
-        )
+        self._attributes["price"] = getattr(self._data, f"{self._sensor_type}_price")
+
