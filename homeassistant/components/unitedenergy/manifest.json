@@ -1,0 +1,8 @@
+{
+    "domain": "unitedenergy",
+    "name": "United Energy",
+    "documentation": "https://github.com/home-assistant/example-custom-config/tree/master/custom_components/unitedenergy/",
+    "dependencies": [],
+    "codeowners": [],
+    "requirements": []
+}
